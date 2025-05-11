@@ -1,0 +1,17 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Transacao {
+  id              Int      @id @default(autoincrement())
+  valor           Float
+  descricao       String?
+  status          String   // "pendente", "sucesso", "falha"
+  data_criacao    DateTime @default(now())
+  data_atualizacao DateTime @updatedAt
+}

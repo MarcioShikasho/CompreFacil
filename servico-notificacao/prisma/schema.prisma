@@ -1,0 +1,17 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL") // This might point to a different DB or the same, depending on design
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Notificacao {
+  id             Int      @id @default(autoincrement())
+  transacaoId    Int
+  mensagem       String
+  statusEnvio    String   // e.g., "enviada", "falhou"
+  dataCriacao    DateTime @default(now())
+  // Add any other relevant fields for a notification
+}

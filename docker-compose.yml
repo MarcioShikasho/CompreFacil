@@ -1,0 +1,77 @@
+version: '3.8'
+
+services:
+  postgres_db:
+    image: postgres:13-alpine
+    container_name: postgres_db_nest
+    environment:
+      POSTGRES_USER: nestuser
+      POSTGRES_PASSWORD: nestpassword
+      POSTGRES_DB: nest_payment_db
+    volumes:
+      - postgres_nest_data:/var/lib/postgresql/data
+    ports:
+      - "5433:5432" # Use a different host port if 5432 is in use
+    networks:
+      - app_nest_network
+
+  rabbitmq_server:
+    image: rabbitmq:3-management-alpine
+    container_name: rabbitmq_server_nest
+    ports:
+      - "5673:5672" # Use a different host port for AMQP
+      - "15673:15672" # Use a different host port for management UI
+    networks:
+      - app_nest_network
+
+  servico-pagamento:
+    build:
+      context: ./servico-pagamento
+      dockerfile: Dockerfile
+    container_name: servico_pagamento_nest_app
+    command: npm run start:prod
+    ports:
+      - "4000:3000" # Expose on host 4000, container 3000 (default NestJS port)
+    environment:
+      DATABASE_URL: postgresql://nestuser:nestpassword@postgres_db:5432/nest_payment_db
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq_server:5672
+      PORT: 3000
+    depends_on:
+      - postgres_db
+      - rabbitmq_server
+    volumes:
+      - ./servico-pagamento:/usr/src/app # Mount local code for development (optional)
+      - /usr/src/app/node_modules # Don't mount over node_modules in container
+      - /usr/src/app/dist # Don't mount over dist in container if built outside
+    networks:
+      - app_nest_network
+
+  servico-notificacao:
+    build:
+      context: ./servico-notificacao
+      dockerfile: Dockerfile
+    container_name: servico_notificacao_nest_app
+    command: npm run start:prod
+    ports:
+      - "4001:3001" # Expose on host 4001, container 3001
+    environment:
+      DATABASE_URL: postgresql://nestuser:nestpassword@postgres_db:5432/nest_payment_db # Assuming it might also use the DB
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq_server:5672
+      PORT: 3001
+    depends_on:
+      - postgres_db # If it uses the DB
+      - rabbitmq_server
+    volumes:
+      - ./servico-notificacao:/usr/src/app # Mount local code for development (optional)
+      - /usr/src/app/node_modules
+      - /usr/src/app/dist
+    networks:
+      - app_nest_network
+
+networks:
+  app_nest_network:
+    driver: bridge
+
+volumes:
+  postgres_nest_data:
+
