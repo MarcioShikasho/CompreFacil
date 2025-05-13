@@ -21,6 +21,8 @@ services:
       - "15673:15672" # Use a different host port for management UI
     networks:
       - app_nest_network
+    volumes:
+      - rabbitmq_nest_data:/var/lib/rabbitmq
 
   servico-pagamento:
     build:
@@ -72,4 +74,5 @@ networks:
 
 volumes:
   postgres_nest_data:
+  rabbitmq_nest_data:
 

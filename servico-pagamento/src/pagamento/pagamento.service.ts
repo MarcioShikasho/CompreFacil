@@ -69,7 +69,7 @@ export class PagamentoService {
 
     return transacao;
   }
-
+  
   // Adicionar outros métodos conforme necessário (ex: buscar pagamento, etc.)
 }
 

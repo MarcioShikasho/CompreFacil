@@ -22,6 +22,8 @@ async function bootstrap() {
     },
   });
 
+  await new Promise(resolve => setTimeout(resolve, 15000));
+
   await app.startAllMicroservices();
   
   const port = process.env.PORT || 3001;

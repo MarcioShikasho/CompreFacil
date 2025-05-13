@@ -2,8 +2,7 @@ import { Module } from "@nestjs/common";
 import { AppController } from "./app.controller";
 import { AppService } from "./app.service";
 import { PrismaModule } from "./prisma/prisma.module";
-import { NotificacaoModule } from "./notificacao/notificacao.module"; // Import NotificacaoModule
-// No ClientsModule needed here if it only consumes messages
+import { NotificacaoModule } from "./notificacao/notificacao.module"; 
 
 @Module({
   imports: [

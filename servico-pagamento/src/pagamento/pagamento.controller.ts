@@ -17,7 +17,7 @@ export class PagamentoController {
   @Post()
   async create(@Body() createPagamentoDto: CreatePagamentoDto) {
     const pagamento = await this.pagamentoService.createPagamento(createPagamentoDto);
-    // O envio de mensagens para RabbitMQ será feito pelo service
+
     return pagamento;
   }
 }
