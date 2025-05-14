@@ -1,172 +1,112 @@
-# Desafio de Microsserviços - Aplicação de Pagamento (NestJS)
+# Sistema de Pagamento Assíncrono com Notificação
 
-Este projeto implementa uma solução para o desafio da faculdade que consiste na criação de uma aplicação de pagamento utilizando arquitetura de microsserviços com NestJS, TypeScript, RabbitMQ e PostgreSQL, orquestrados com Docker Compose. Esta versão foi refatorada para seguir os padrões dos repositórios modelo fornecidos.
+Este projeto demonstra um fluxo de pagamento e notificação assíncrona utilizando NestJS, Docker, PostgreSQL e RabbitMQ. O sistema é composto por dois microsserviços principais: um **Sistema de Pagamento** (síncrono via HTTP e publisher RabbitMQ) e um **Sistema de Notificação** (consumer RabbitMQ).
 
-## Visão Geral da Arquitetura
+## Arquitetura
 
-A solução é composta por:
+A arquitetura do projeto consiste em:
 
-*   **Serviço de Pagamento (`servico-pagamento`):** Aplicação NestJS com API REST para receber solicitações de pagamento, armazenar transações no PostgreSQL (via Prisma) e publicar eventos no RabbitMQ.
-*   **Serviço de Notificação (`servico-notificacao`):** Aplicação NestJS que consome eventos do RabbitMQ para simular o envio de notificações sobre o status das transações e pode persistir dados de notificação (via Prisma).
-*   **PostgreSQL (`postgres_db_nest`):** Banco de dados para persistir as transações e notificações.
-*   **RabbitMQ (`rabbitmq_server_nest`):** Sistema de mensageria para comunicação assíncrona.
+- **Serviço de Pagamento (`servico-pagamento`):** Aplicação NestJS que recebe requisições HTTP, salva transações iniciais no DB, publica mensagens no RabbitMQ (solicitação e confirmação).
+- **Serviço de Notificação (`servico-notificacao`):** Aplicação NestJS que consome mensagens do RabbitMQ e processa as notificações (simuladas, incluindo salvar no DB).
+- **RabbitMQ (`rabbitmq_server`):** Broker de mensagens utilizado para a comunicação assíncrona entre os serviços.
+- **PostgreSQL (`postgres_db`):** Banco de dados relacional compartilhado pelos serviços (para transações e notificações).
 
-## Estrutura do Projeto (Simplificada)
+O fluxo assíncrono implementado segue os passos:
 
-```
-.
-├── docker-compose.yml
-├── servico-pagamento
-│   ├── Dockerfile
-│   ├── package.json
-│   ├── nest-cli.json
-│   ├── tsconfig.json
-│   ├── prisma/
-│   │   └── schema.prisma
-│   └── src/
-│       ├── main.ts
-│       ├── app.module.ts
-│       ├── prisma/ (PrismaModule, PrismaService)
-│       └── pagamento/ (PagamentoModule, PagamentoController, PagamentoService)
-├── servico-notificacao
-│   ├── Dockerfile
-│   ├── package.json
-│   ├── nest-cli.json
-│   ├── tsconfig.json
-│   ├── prisma/
-│   │   └── schema.prisma
-│   └── src/
-│       ├── main.ts
-│       ├── app.module.ts
-│       ├── prisma/ (PrismaModule, PrismaService)
-│       └── notificacao/ (NotificacaoModule, NotificacaoController, NotificacaoService)
-└── README.md (este arquivo)
-```
+1.  Sistema de Pagamento recebe requisição (via HTTP) e salva transação como "pendente" no DB.
+2.  Sistema de Pagamento publica mensagem na exchange RabbitMQ informando sobre a **solicitação** de transação.
+3.  Sistema de Notificação consome a mensagem de solicitação da fila RabbitMQ e processa a notificação inicial.
+4.  Sistema de Pagamento (após simular processamento) atualiza o status da transação para "sucesso" no DB.
+5.  Sistema de Pagamento publica mensagem na exchange RabbitMQ informando sobre a **confirmação** da transação.
+6.  Sistema de Notificação consome a mensagem de confirmação da fila RabbitMQ e processa a notificação final.
 
 ## Pré-requisitos
 
-*   Docker: [https://www.docker.com/get-started](https://www.docker.com/get-started)
-*   Docker Compose: (geralmente incluído na instalação do Docker Desktop)
-*   Node.js e npm (para desenvolvimento local e instalação inicial de dependências se não usar apenas Docker)
+- Docker e Docker Compose instalados.
+- Node.js e npm (ou yarn) instalados (necessário para rodar comandos Prisma localmente).
 
-## Como Configurar e Executar com Docker Compose
+## Configuração
 
-1.  **Clone o repositório (após ser criado e o código enviado):**
-    ```bash
-    git clone <URL_DO_REPOSITORIO_AQUI>
-    cd <NOME_DO_DIRETORIO_DO_REPOSITORIO>
-    ```
+1.  Clone este repositório.
+2.  Navegue até a pasta raiz do projeto.
+3.  Crie arquivos `.env` nas pastas `servico-pagamento` e `servico-notificacao`. Cada arquivo `.env` deve conter a `DATABASE_URL` para conectar ao DB Dockerizado a partir do seu host (para comandos Prisma locais):
 
-2.  **Variáveis de Ambiente:**
-    Os arquivos `.env` dentro de `servico-pagamento` e `servico-notificacao` são cruciais para o Prisma e outras configurações. Eles são referenciados no `docker-compose.yml` e nos schemas Prisma.
-
-    **Exemplo de `.env` para `servico-pagamento` e `servico-notificacao`:**
-    (Crie este arquivo em `servico-pagamento/.env` e `servico-notificacao/.env` se não estiverem presentes ou se precisar ajustar)
     ```env
-    # PostgreSQL
-    DATABASE_URL="postgresql://nestuser:nestpassword@postgres_db_nest:5432/nest_payment_db"
-
-    # RabbitMQ
-    RABBITMQ_URL="amqp://guest:guest@rabbitmq_server_nest:5672"
-
-    # Service Port (opcional, pode ser pego do docker-compose)
-    PORT=3000 # Para servico-pagamento
-    # PORT=3001 # Para servico-notificacao
+    # servico-pagamento/.env e servico-notificacao/.env
+    DATABASE_URL="postgresql://nestuser:nestpassword@localhost:5433/nest_payment_db"
     ```
-    *Nota: No `docker-compose.yml` fornecido, as URLs do banco e RabbitMQ já usam os nomes dos serviços da rede Docker, o que é o correto para comunicação entre contêineres.* 
+    Certifique-se de que as credenciais, host (`localhost`) e porta (`5433`) estão corretos conforme seu mapeamento no `docker-compose.yml`.
 
-3.  **Construa e inicie os contêineres:**
-    No diretório raiz do projeto (onde o `docker-compose.yml` está localizado), execute:
+## Como Rodar o Projeto
+
+1.  Na pasta raiz do projeto, construa as imagens Docker:
+
     ```bash
-    docker-compose up --build -d
+    docker-compose build
     ```
-    O comando `-d` executa os contêineres em segundo plano.
-    *A primeira execução pode levar alguns minutos para construir as imagens e baixar as dependências.*
 
-4.  **Aplicar Migrações Prisma (após os contêineres estarem rodando):**
-    Você precisará executar os comandos de migração do Prisma dentro dos contêineres dos serviços após o banco de dados estar pronto.
+2.  Suba os serviços:
+
     ```bash
-    docker-compose exec servico-pagamento npx prisma migrate dev --name init
-    # Se o servico-notificacao também tiver seu próprio schema/migrações independentes:
-    # docker-compose exec servico-notificacao npx prisma migrate dev --name init
+    docker-compose up -d
     ```
-    *Isso criará as tabelas no banco de dados `nest_payment_db`.*
 
-5.  **Verifique os logs (opcional):**
-    Para acompanhar os logs dos serviços:
+    Isso iniciará os contêineres do PostgreSQL, RabbitMQ, Serviço de Pagamento e Serviço de Notificação. O Serviço de Pagamento executará `npx prisma migrate deploy` na inicialização para aplicar as migrações do seu schema (tabela `Transacao`).
+
+3.  **Inicialize o Schema do Serviço de Notificação (se necessário):**
+    Se for a primeira vez ou se o schema do Serviço de Notificação (tabela `Notificacao`) não existir no DB, você precisará aplicá-lo. Navegue até a pasta `servico-notificacao` e execute um comando Prisma localmente, usando a `DATABASE_URL` do `.env` para se conectar ao DB Dockerizado:
+
+    ```bash
+    # Na pasta servico-notificacao
+    npx prisma migrate dev --name initial_notification_migration # Para criar a migração
+    # Ou se já tiver o schema, apenas aplique via db push (pode sobrescrever migrações existentes)
+    # npx prisma db push
+    ```
+    Use a sobrescrita da `DATABASE_URL` se o seu `.env` não estiver configurado corretamente para `localhost:5433`:
+    ```bash
+    # Exemplo Linux/macOS para db push a partir de servico-notificacao
+    DATABASE_URL="postgresql://nestuser:nestpassword@localhost:5433/nest_payment_db" npx prisma db push
+    ```
+
+4.  **Configure as Ligações no RabbitMQ:**
+    Mesmo com a configuração do código, pode ser necessário criar as ligações (bindings) entre a exchange e a fila manualmente no RabbitMQ UI.
+
+    - Acesse a interface do RabbitMQ Management: `http://localhost:15673` (usuário/senha padrão: guest/guest).
+    - Vá na aba **Exchanges**.
+    - Clique na exchange `pagamentos_exchange`.
+    - Na seção **Bindings from this exchange**, adicione as duas ligações para a fila `notificacoes_queue`:
+        - To queue: `notificacoes_queue`, Routing key: `solicitacao_pagamento_criada`
+        - To queue: `notificacoes_queue`, Routing key: `pagamento_confirmado`
+
+## Testando o Fluxo
+
+1.  Certifique-se de que todos os contêineres estão rodando (`docker-compose ps`).
+2.  Monitore os logs dos serviços de pagamento e notificação:
+
     ```bash
     docker-compose logs -f servico-pagamento servico-notificacao
     ```
-    Você deverá ver mensagens indicando que os serviços NestJS iniciaram, conectaram-se ao RabbitMQ e ao PostgreSQL.
 
-## Como Testar a Aplicação
+3.  Em outro terminal, execute o comando `curl` para iniciar uma transação:
 
-1.  **Envie uma Solicitação de Pagamento:**
-    Use uma ferramenta como `curl` ou Postman para enviar uma requisição POST para o serviço de pagamento. A porta exposta no host para o `servico-pagamento` é `4000` conforme o `docker-compose.yml`.
-
-    Exemplo com `curl`:
     ```bash
-    curl -X POST -H "Content-Type: application/json" -d \
-    '{ "valor": 250.99, "descricao": "Compra de Produto NestJS" }' \
-    http://localhost:4000/pagamentos
+    curl -X POST \
+      http://localhost:4000/pagamentos \
+      -H 'Content-Type: application/json' \
+      -d '{
+        "valor": 750.50,
+        "descricao": "Pagamento de teste completo"
+      }'
     ```
 
-2.  **Observe os Logs:**
-    Acompanhe os logs dos contêineres `servico-pagamento` e `servico-notificacao`.
+4.  Observe os logs nos terminais de monitoramento. Você verá o serviço de pagamento processando a requisição, salvando no DB, publicando mensagens, e depois o serviço de notificação recebendo as mensagens e processando as notificações correspondentes.
 
-    *   **Serviço de Pagamento:**
-        *   Registrará a criação da transação com status "pendente".
-        *   Publicará uma mensagem de "solicitação de pagamento criada".
-        *   Após um delay simulado (5 segundos), atualizará a transação para "sucesso".
-        *   Publicará uma mensagem de "pagamento confirmado".
+## Observações da Depuração
 
-    *   **Serviço de Notificação:**
-        *   Receberá e registrará o evento de "solicitação de pagamento criada" e simulará uma notificação.
-        *   Receberá e registrará o evento de "pagamento confirmado" e simulará uma notificação.
+Durante o desenvolvimento deste projeto, foram encontrados e resolvidos diversos desafios comuns em sistemas distribuídos e Dockerizados:
 
-3.  **Verifique o Banco de Dados (Opcional):**
-    Conecte-se ao contêiner do PostgreSQL para verificar os dados.
-    ```bash
-    docker-compose exec postgres_db_nest psql -U nestuser -d nest_payment_db
-    ```
-    Dentro do psql, execute:
-    ```sql
-    SELECT * FROM "Transacao";
-    SELECT * FROM "Notificacao"; -- Se a tabela de notificação foi criada e usada
-    ```
-
-4.  **Acesse a Interface de Gerenciamento do RabbitMQ (Opcional):**
-    Abra seu navegador e acesse `http://localhost:15673` (porta definida no `docker-compose.yml`).
-    *   Usuário: `guest`
-    *   Senha: `guest`
-    Você poderá ver as exchanges, filas e o fluxo de mensagens.
-
-## Parando os Serviços
-
-Para parar e remover os contêineres, redes e volumes (exceto o volume nomeado `postgres_nest_data` para persistência do banco), execute:
-```bash
-docker-compose down
-```
-Para remover também o volume de dados do Postgres (cuidado, isso apagará os dados do banco):
-```bash
-docker-compose down -v
-```
-
-## Desenvolvimento Local (Fora do Docker)
-
-1.  Navegue até `servico-pagamento` ou `servico-notificacao`.
-2.  Copie `.env.example` para `.env` e configure `DATABASE_URL` e `RABBITMQ_URL` para apontar para instâncias locais do Postgres e RabbitMQ.
-3.  Instale dependências: `npm install`.
-4.  Gere o cliente Prisma: `npx prisma generate`.
-5.  Aplique migrações: `npx prisma migrate dev --name init`.
-6.  Inicie em modo de desenvolvimento: `npm run start:dev`.
-
-## Considerações
-
-*   Esta implementação busca alinhar-se com os padrões NestJS, TypeScript e Prisma observados nos repositórios modelo.
-*   Tratamento de erros, validações de entrada (DTOs podem ser melhorados com `class-validator`), segurança e outras funcionalidades de produção foram simplificados para o escopo do desafio.
-
-## Repositório do Projeto
-
-O link para o repositório GitHub contendo este código será fornecido na entrega do desafio.
-
+- Problemas de conexão com o banco de dados devido a mapeamento de portas Docker e variáveis de ambiente incorretas para comandos locais vs. dentro de contêineres.
+- Gerenciamento de migrações Prisma em ambientes Docker (aplicando migrações na inicialização do contêiner).
+- Problemas de timing na inicialização de contêineres (RabbitMQ não pronto quando o serviço tentava conectar).
+- Compreensão do roteamento de mensagens no RabbitMQ (Exchanges, Queues, Bindings).
+- Configuração específica do transporte NestJS RabbitMQ para publishers enviando para Exchanges e Consumers ouvindo Filas, incluindo a necessidade de criar ligações manualmente e um comportamento específico observado ao incluir a opção `queue` na configuração do publisher em conjunto com `exchange`.

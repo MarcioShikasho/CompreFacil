@@ -1,0 +1,51 @@
+# Node.js
+node_modules/
+dist/ # Pasta de build do NestJS
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+.pnpm-debug.log*
+.yarn/ # Dependências Yarn (se usar berry)
+
+# Environment
+.env # Arquivos de variáveis de ambiente
+
+# Docker
+# Para ignorar volumes persistentes no host se você os mapear diretamente
+# ./pgdata
+# ./rabbitmq_data
+
+# Prisma
+# Ignorar arquivos gerados pelo cliente Prisma
+# prisma/client/
+# prisma/generated/ # Depende da sua versão do Prisma
+# prisma/migrations.lock # Se o Prisma gerar este arquivo
+
+# Logs
+*.log
+logs/
+
+# IDEs e Editores
+.vscode/ # VS Code
+.idea/ # JetBrains IDEs
+*.sublime-project
+*.sublime-workspace
+
+# macOS
+.DS_Store
+
+# Windows
+Thumbs.db
+
+# Binaries
+*.exe
+*.dll
+*.so
+*.a
+
+# Temporaries
+*~
+*.swp
+.tmp/
+temp/

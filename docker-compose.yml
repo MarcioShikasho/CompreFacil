@@ -9,7 +9,7 @@ services:
     volumes:
       - postgres_nest_data:/var/lib/postgresql/data
     ports:
-      - "5433:5432" # Use a different host port if 5432 is in use
+      - "5433:5432" 
     networks:
       - app_nest_network
 
@@ -17,8 +17,8 @@ services:
     image: rabbitmq:3-management-alpine
     container_name: rabbitmq_server_nest
     ports:
-      - "5673:5672" # Use a different host port for AMQP
-      - "15673:15672" # Use a different host port for management UI
+      - "5673:5672" 
+      - "15673:15672" 
     networks:
       - app_nest_network
     volumes:
@@ -29,9 +29,9 @@ services:
       context: ./servico-pagamento
       dockerfile: Dockerfile
     container_name: servico_pagamento_nest_app
-    command: npm run start:prod
+    command: sh -c "npx prisma migrate deploy && npm run start:prod"
     ports:
-      - "4000:3000" # Expose on host 4000, container 3000 (default NestJS port)
+      - "4000:3000" 
     environment:
       DATABASE_URL: postgresql://nestuser:nestpassword@postgres_db:5432/nest_payment_db
       RABBITMQ_URL: amqp://guest:guest@rabbitmq_server:5672
@@ -40,9 +40,9 @@ services:
       - postgres_db
       - rabbitmq_server
     volumes:
-      - ./servico-pagamento:/usr/src/app # Mount local code for development (optional)
-      - /usr/src/app/node_modules # Don't mount over node_modules in container
-      - /usr/src/app/dist # Don't mount over dist in container if built outside
+      - ./servico-pagamento:/usr/src/app 
+      - /usr/src/app/node_modules 
+      - /usr/src/app/dist 
     networks:
       - app_nest_network
 
@@ -53,16 +53,16 @@ services:
     container_name: servico_notificacao_nest_app
     command: npm run start:prod
     ports:
-      - "4001:3001" # Expose on host 4001, container 3001
+      - "4001:3001" 
     environment:
-      DATABASE_URL: postgresql://nestuser:nestpassword@postgres_db:5432/nest_payment_db # Assuming it might also use the DB
+      DATABASE_URL: postgresql://nestuser:nestpassword@postgres_db:5432/nest_payment_db
       RABBITMQ_URL: amqp://guest:guest@rabbitmq_server:5672
       PORT: 3001
     depends_on:
-      - postgres_db # If it uses the DB
+      - postgres_db 
       - rabbitmq_server
     volumes:
-      - ./servico-notificacao:/usr/src/app # Mount local code for development (optional)
+      - ./servico-notificacao:/usr/src/app 
       - /usr/src/app/node_modules
       - /usr/src/app/dist
     networks:

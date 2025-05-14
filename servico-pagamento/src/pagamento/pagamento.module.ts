@@ -13,6 +13,7 @@ import { PrismaModule } from '../prisma/prisma.module';
         transport: Transport.RMQ,
         options: {
           urls: [process.env.RABBITMQ_URL || 'amqp://guest:guest@rabbitmq_server:5672'],
+          queue: 'notificacoes_queue',
           exchange: 'pagamentos_exchange',
           exchangeType: 'direct' 
         },
